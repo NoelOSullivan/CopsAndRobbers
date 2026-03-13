@@ -1,0 +1,14 @@
+<div class="background-holder">
+    <div class="container">
+        <img #background  class="background-image" src="assets/images/background/bg-d.jpg" alt="Background">
+        <svg class="path-svg" viewBox="-340 -325 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path #svgPath
+                d="M316.381 0.480011C304.381 3.98001 285.681 6.98001 266.881 18.98C243.381 33.98 241.881 39.48 240.881 47.98C239.881 56.48 257.881 70.48 284.881 80.98C311.881 91.48 362.397 110.98 343.881 138.98C323.381 169.98 266.881 191.329 289.381 212.98C315.881 238.48 413.788 242.749 449.881 256.48C495.881 273.98 437.381 293.619 347.381 322.48C200.615 369.544 186.153 382.862 158.381 393.48C107.381 412.98 -23.6186 472.48 4.38135 566.98C32.3814 661.48 339.881 673.98 387.381 677.48C434.881 680.98 713.382 695.98 960.882 677.48C1174.5 661.513 1486.38 590.98 1517.88 588.98"
+                stroke="none" stroke-width="3" />
+        </svg>
+        <div class="character" #cop>
+            <app-character [modelUrl]="copUrl()" [rotation]="copRotation()" [scale]="copScale()"
+                [animation]="copAnimation()" />
+        </div>
+    </div>
+</div>
