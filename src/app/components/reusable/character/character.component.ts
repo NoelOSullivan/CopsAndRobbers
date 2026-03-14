@@ -9,6 +9,7 @@ import {
   inject,
   afterNextRender,
 } from '@angular/core';
+import { NgClass } from '@angular/common';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -16,12 +17,10 @@ export type AnimationName = 'idle' | 'run' | 'breathe' | 'happy' | 'sad';
 
 @Component({
   selector: 'app-character',
+  imports: [NgClass],
   standalone: true,
-  template: `<canvas #canvas></canvas>`,
-  styles: [`
-    :host { display: block; width: 100%; height: 100%; }
-    canvas { width: 100% !important; height: 100% !important; display: block; }
-  `],
+  templateUrl: './character.component.html',
+  styleUrls: ['./character.component.scss'],
 })
 export class CharacterComponent implements OnDestroy {
 
@@ -45,13 +44,14 @@ export class CharacterComponent implements OnDestroy {
   private character?: THREE.Object3D;
   private frameId?: number;
   private resizeObserver!: ResizeObserver;
+  protected ready = false;
 
   constructor() {
     afterNextRender(() => {
       this.initScene(this.canvas().nativeElement);
       this.loadModel();
       this.startLoop();
-      this.observeResize();
+      // this.observeResize();
     });
 
     effect(() => {
@@ -71,8 +71,8 @@ export class CharacterComponent implements OnDestroy {
 
   private initScene(canvasEl: HTMLCanvasElement): void {
     const { width, height } = canvasEl.getBoundingClientRect();
-    const w = width || 300;
-    const h = height || 400;
+    const w = width;
+    const h = height;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -108,12 +108,12 @@ export class CharacterComponent implements OnDestroy {
         this.character.rotation.y = this.rotation();
         this.character.scale.setScalar(this.scale());
 
-        this.character.traverse((node) => {
-          if ((node as THREE.Mesh).isMesh) {
-            node.castShadow = true;
-            node.receiveShadow = true;
-          }
-        });
+        // this.character.traverse((node) => {
+        //   if ((node as THREE.Mesh).isMesh) {
+        //     node.castShadow = true;
+        //     node.receiveShadow = true;
+        //   }
+        // });
 
         this.scene.add(this.character);
 
@@ -122,7 +122,18 @@ export class CharacterComponent implements OnDestroy {
           this.animationMap.set(clip.name as AnimationName, this.mixer.clipAction(clip));
         });
 
+        const idleAction = this.animationMap.get('idle');
+        if (idleAction) {
+          idleAction.play();
+          this.mixer.update(idleAction.getClip().duration);
+          idleAction.stop();
+        }
+
         this.playAnimation(this.animation());
+
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          this.ready = true;
+        }));
       },
       undefined,
       (err) => console.error('CharacterComponent: model load failed', err)

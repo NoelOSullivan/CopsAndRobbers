@@ -1,4 +1,4 @@
-import { Component, ElementRef, effect, viewChild, signal, NgZone } from '@angular/core';
+import { Component, ElementRef, effect, viewChild, signal, NgZone, DebugElement } from '@angular/core';
 import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { CharacterComponent } from '../reusable/character/character.component';
@@ -19,9 +19,10 @@ export class BackgroundComponent {
 
   readonly svgPath = viewChild.required<ElementRef>('svgPath');
   readonly cop = viewChild.required<ElementRef>('cop');
-
+  readonly robber = viewChild.required<ElementRef>('robber');
   // gsap takes an object for progress
   private gsapProgressCop = { value: 0 };
+  private gsapProgressRobber = { value: 0 };
 
   // These will be used to compute scaling based on the Y position along the path
   private pathYMin = 0;
@@ -30,52 +31,75 @@ export class BackgroundComponent {
   // Character info
   protected copUrl = signal<string>('assets/images/characters/cop-def.glb');
   protected copRotation = signal<number>(0);
-  protected copScale = signal<number>(0.2);
+  protected copScale = signal<number>(0.0);
   protected copAnimation = signal<AnimationName>('idle');
 
-  // superset of gsap tween allowing us to control the timeline progress manually
-  private timeline!: gsap.core.Timeline;
+  protected robberUrl = signal<string>('assets/images/characters/robber-def.glb');
+  protected robberRotation = signal<number>(0);
+  protected robberScale = signal<number>(0.0);
+  protected robberAnimation = signal<AnimationName>('idle');
+
+  // Timeline is a superset of gsap tween allowing us to control the progress manually
+  private timelineCop!: gsap.core.Timeline;
+  private timelineRobber!: gsap.core.Timeline;
 
   constructor(private ngZone: NgZone) {
     effect(() => {
-      this.timeline = gsap.timeline({ paused: true });
-      this.timeline.to(this.cop().nativeElement, {
-        motionPath: {
-          path: this.svgPath().nativeElement,
-          align: this.svgPath().nativeElement,
-          // Origin of character holder set to bottom. This anchors the character's feet to the path
-          alignOrigin: [0.5, 1],
-          autoRotate: false,
-        },
-        ease: 'none',
-        duration: 1,
-      });
-      this.gsapProgressCop.value = 0;
-      this.timeline.progress(this.gsapProgressCop.value);
+      this.timelineCop = this.createTimeline(this.cop().nativeElement);
+      this.timelineRobber = this.createTimeline(this.robber().nativeElement);
       this.computePathYBounds();
+      this.moveToPercent('cop', 0.00001);
+      this.moveToPercent('robber', 0.00001);
+      this.startTestSequence();
+    }, { allowSignalWrites: true });
+  }
+
+  private createTimeline(element: HTMLElement): gsap.core.Timeline {
+    const tl = gsap.timeline({ paused: true });
+    tl.to(element, {
+      motionPath: {
+        path: this.svgPath().nativeElement,
+        align: this.svgPath().nativeElement,
+        alignOrigin: [0.5, 1],
+        autoRotate: false,
+      },
+      ease: 'none',
     });
+    return tl;
   }
 
   ngAfterViewInit() {
     setTimeout(() => {
-      this.moveToPercent(0.75);
+      this.moveToPercent("cop", 0.75);
       this.copAnimation.set('run');
-    }, 1000);
+    }, 4000);
+    setTimeout(() => {
+      this.moveToPercent("robber", 0.75);
+      this.robberAnimation.set('run');
+    }, 5000);
   }
 
-  moveToPercent(percent: number) {
+  moveToPercent(character: 'cop' | 'robber', percent: number) {
     const clamped = Math.min(1, Math.max(0, percent));
-    const distance = Math.abs(clamped - this.gsapProgressCop.value);
-    const duration = distance * 30;
-    gsap.to(this.gsapProgressCop, {
+    const isCop = character === 'cop';
+
+    const gsapProgress = isCop ? this.gsapProgressCop : this.gsapProgressRobber;
+    const timeline = isCop ? this.timelineCop : this.timelineRobber;
+    const scale = isCop ? this.copScale : this.robberScale;
+    const rotation = isCop ? this.copRotation : this.robberRotation;
+
+    const distance = Math.abs(clamped - gsapProgress.value);
+    const duration = distance === 0 ? 0.0001 : distance * 10;
+
+    gsap.to(gsapProgress, {
       value: clamped,
       duration,
       ease: 'linear',
       onUpdate: () => {
         this.ngZone.run(() => {
-          this.timeline.progress(this.gsapProgressCop.value);
-          this.applyScale(this.getScaleAtProgress(this.gsapProgressCop.value));
-          this.applyRotation(this.getRotationAtProgress(this.gsapProgressCop.value));
+          timeline.progress(gsapProgress.value);
+          scale.set(0.2 + this.getScaleAtProgress(gsapProgress.value) * 2 );
+          rotation.set(this.getRotationAtProgress(gsapProgress.value));
         });
       }
     });
@@ -84,7 +108,6 @@ export class BackgroundComponent {
   private computePathYBounds() {
     const rawPath = MotionPathPlugin.getRawPath(this.svgPath().nativeElement);
     MotionPathPlugin.cacheRawPathMeasurements(rawPath);
-
     const samples = 200;
     const yValues = Array.from({ length: samples }, (_, i) => {
       const point = MotionPathPlugin.getPositionOnPath(rawPath, i / (samples - 1));
@@ -103,11 +126,6 @@ export class BackgroundComponent {
     return (point.y - this.pathYMin) / range;
   }
 
-  private applyScale(coef: number) {
-    const scale = 0.2 + coef * 2;
-    this.copScale.set(scale);
-  }
-
   getRotationAtProgress(progress: number): number {
     const rawPath = MotionPathPlugin.getRawPath(this.svgPath().nativeElement);
     MotionPathPlugin.cacheRawPathMeasurements(rawPath);
@@ -117,8 +135,10 @@ export class BackgroundComponent {
     return Math.atan2(-(b.y - a.y), b.x - a.x) + Math.PI / 2;
   }
 
-  private applyRotation(angle: number) {
-    this.copRotation.set(angle);
+  // ------------------------------------------------------------------------------------------------
+
+  startTestSequence() {
+    console.log('Starting test sequence...');
   }
 
 }
